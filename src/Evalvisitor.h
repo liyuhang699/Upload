@@ -5,25 +5,39 @@
 #include "Python3BaseVisitor.h"
 #include <cstring>
 #include <string>
+#include <cstdio>
 #include "bigInteger.h"
 #include <cmath>
 #include <map>
 #include <iomanip>
 #include <algorithm>
-
-
+#include <stack>
+std::map<std::string,antlrcpp::Any> globa_quality; 
+std::map<std::string,antlrcpp::Any> quality; 
+std::stack<std::map<std::string,antlrcpp::Any>> level;
+int lev = 0;
 class EvalVisitor: public Python3BaseVisitor {
-    std::map<std::string,antlrcpp::Any> quality; 
+    
     antlrcpp::Any visitFile_input(Python3Parser::File_inputContext *ctx) override {
         return visitChildren(ctx);
     }
 
-    antlrcpp::Any visitFuncdef(Python3Parser::FuncdefContext *ctx) override {
-        return visitChildren(ctx);
+    antlrcpp::Any visitFuncdef(Python3Parser::FuncdefContext *ctx) override {  
+
+        lev += 1;
+
+        antlrcpp::Any tylist = visit(ctx -> parameters());
+        antlrcpp::Any todo = visit(ctx -> suite());
+        //if()
+        lev -=1; 
+        return 0;
     }
 
     antlrcpp::Any visitParameters(Python3Parser::ParametersContext *ctx) override {
-        return visitChildren(ctx);
+        if(ctx -> typedargslist()){
+             return visit(ctx -> typedargslist());
+        }
+       else return nullptr;
     }
 
     antlrcpp::Any visitTypedargslist(Python3Parser::TypedargslistContext *ctx) override {
@@ -52,12 +66,20 @@ class EvalVisitor: public Python3BaseVisitor {
 
     antlrcpp::Any visitExpr_stmt(Python3Parser::Expr_stmtContext *ctx) override {
         //std::cout<<"hit expr stmt"<<std::endl;
+        bool flag;
         if(ctx -> ASSIGN(0))
         {  
+            /*if(lev != 0){
+                if(quality.empty())
+                {quality = globa_quality;}//如果尚无变量，取全部变量
+                flag = true;//说明这是函数内部
+            }else flag = false;*/
+
             int n = ctx ->testlist().size();
             //std::cout<<"["<<n<<"]";
             antlrcpp::Any Tmp1 = visit(ctx -> testlist(n-1)),tmp1,tmp2;
             int num1 = Tmp1.as<std::vector<antlrcpp::Any>>().size(),num2;
+            
             for(int i = n-2;i >= 0;i--){
                antlrcpp::Any Tmp2 = visit(ctx -> testlist(i));
                num2 = Tmp2.as<std::vector<antlrcpp::Any>>().size();
@@ -73,6 +95,12 @@ class EvalVisitor: public Python3BaseVisitor {
                    {  
                       if(!tmp2.is<std::string>() || tmp2.as<std::string>()[0] == '"') std::cerr<<"Gramer error"<<std::endl;//不能把一个变量赋给一个常量
                       else {
+                          /*if(!flag) {
+                              tmp2 = "8" + tmp2.as<std::string>();
+                              if(){
+
+                              }
+                          }*/
                           quality[tmp2.as<std::string>()] = quality[tmp1.as<std::string>()];
                           //std::cout<<quality[tmp2.as<std::string>()].as<bigInteger>();
                       }
@@ -81,6 +109,7 @@ class EvalVisitor: public Python3BaseVisitor {
                    {
                       if(!tmp2.is<std::string>() || tmp2.as<std::string>()[0] == '"') std::cerr<<"Gramer error"<<std::endl;//不能把一个常量赋给一个常量
                       else {
+                          //if(!flag) tmp2 = "8" + tmp2.as<std::string>();
                           quality[tmp2.as<std::string>()] = tmp1;
                           //std::cout<<quality[tmp2.as<std::string>()].as<bigInteger>();
                       }
@@ -487,12 +516,12 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitReturn_stmt(Python3Parser::Return_stmtContext *ctx) override {
-        /*std::vector <antlrcpp::Any> ans;
+        std::vector <antlrcpp::Any> ans;
         std::string s = "return";
         ans.push_back(s);
         ans.push_back(visit(ctx -> testlist()));
-        return ans;*/
-        return visitChildren(ctx);
+        return ans;
+        //return visitChildren(ctx);
     }
 
     antlrcpp::Any visitCompound_stmt(Python3Parser::Compound_stmtContext *ctx) override {
@@ -1842,7 +1871,17 @@ class EvalVisitor: public Python3BaseVisitor {
                         t1 = t;
                     }
                     return t1;
-                }else if(tmp1.is<bigInteger>())return tmp1;
+                }else if(tmp1.is<std::string>()){
+                    int n = tmp1.as<std::string>().size();
+                    char a[n+1];
+                    for(int i = 0;i < n;i++){
+                        a[i] = tmp1.as<std::string>()[i];
+                    }
+                    a[n] = '\0';
+                    bigInteger t(a);
+                    return t;
+                }
+                else if(tmp1.is<bigInteger>())return tmp1;
             }else if(tmp2.as<std::string>() == "float"){
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
@@ -1860,7 +1899,11 @@ class EvalVisitor: public Python3BaseVisitor {
                         t1 = 0.0;
                     }
                     return t1;
-                }else if(tmp1.is<double>())return tmp1;
+                }else if(tmp1.is<std::string>()){
+                    tmp1 = atof(tmp1.as<std::string>().c_str());
+                    return tmp1;
+                }
+                else if(tmp1.is<double>())return tmp1;
             }else if(tmp2.as<std::string>() == "str"){
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
