@@ -12,25 +12,45 @@
 #include <iomanip>
 #include <algorithm>
 #include <stack>
-std::map<std::string,antlrcpp::Any> globa_quality; 
-std::map<std::string,antlrcpp::Any> quality; 
-std::stack<std::map<std::string,antlrcpp::Any>> level;
-int lev = 0;
+
 class EvalVisitor: public Python3BaseVisitor {
-    
+    std::map<std::string,antlrcpp::Any> globa_quality; 
+    std::map<std::string,antlrcpp::Any> quality; 
+    std::stack<std::map<std::string,antlrcpp::Any>> level;
+    int lev = 0;
+    std::map<std::string,Python3Parser::ParametersContext*> functylist;
+    std::map<std::string,Python3Parser::SuiteContext*> funcsutie;
     antlrcpp::Any visitFile_input(Python3Parser::File_inputContext *ctx) override {
         return visitChildren(ctx);
     }
 
     antlrcpp::Any visitFuncdef(Python3Parser::FuncdefContext *ctx) override {  
-
-        lev += 1;
-
-        antlrcpp::Any tylist = visit(ctx -> parameters());
-        antlrcpp::Any todo = visit(ctx -> suite());
-        //if()
-        lev -=1; 
+        //std::cout<<"hit Funcdef"<<std::endl;
+        //lev += 1;
+        //Python3Parser::ParametersContext *tylist = ctx -> parameters();
+        //Python3Parser::SuiteContext *todo = ctx -> suite();
+        std::string funcname = ctx -> NAME() -> toString();
+        functylist[funcname] = ctx -> parameters();
+        funcsutie[funcname] = ctx -> suite();
+        //std::cout<<"complete"<<std::endl;
         return 0;
+        //level.push(quality);
+        //quality.clear();
+        //std::cout<<"fundef1"<<std::endl;
+        //antlrcpp::Any tylist = visit(ctx -> parameters());
+        //std::cout<<"fundef2"<<std::endl;
+        //antlrcpp::Any todo = visit(ctx -> suite());
+        //std::cout<<"fundef3"<<std::endl;
+        //lev -=1;
+        //quality = level.top();
+        //if( todo.is<std::string>() && todo.as<std::string>() != "return" 
+        // || !todo.is<std::string>() && !todo.is<int>()) 
+        //{
+        //    return todo;
+        //}else{
+        //    std::cout<<"return 0 func"<<std::endl;
+        //    return 0;
+        //}     
     }
 
     antlrcpp::Any visitParameters(Python3Parser::ParametersContext *ctx) override {
@@ -49,6 +69,7 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitStmt(Python3Parser::StmtContext *ctx) override {
+        //std::cout<<"hit stmt"<<std::endl;
         //if(ctx -> simple_stmt())
         //    return visit(ctx -> simple_stmt());
         //else 
@@ -57,27 +78,29 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitSimple_stmt(Python3Parser::Simple_stmtContext *ctx) override {
+        //std::cout<<"hit simple stmt"<<std::endl;
         return visit(ctx -> small_stmt());
     }
 
     antlrcpp::Any visitSmall_stmt(Python3Parser::Small_stmtContext *ctx) override {
+        //std::cout<<"hit small stmt"<<std::endl;
         return visitChildren(ctx);
     }
 
     antlrcpp::Any visitExpr_stmt(Python3Parser::Expr_stmtContext *ctx) override {
         //std::cout<<"hit expr stmt"<<std::endl;
-        bool flag;
+        bool f;
         if(ctx -> ASSIGN(0))
         {  
-            /*if(lev != 0){
+            if(lev != 0){
                 if(quality.empty())
-                {quality = globa_quality;}//如果尚无变量，取全部变量
-                flag = true;//说明这是函数内部
-            }else flag = false;*/
+                {quality = globa_quality;}//如果尚无变量，取全部全局变量
+                f = true;//说明这是函数内部
+            }else f = false;
 
             int n = ctx ->testlist().size();
             //std::cout<<"["<<n<<"]";
-            antlrcpp::Any Tmp1 = visit(ctx -> testlist(n-1)),tmp1,tmp2;
+            antlrcpp::Any Tmp1 = visit(ctx -> testlist(n-1)),tmp1,tmp2,T1;
             int num1 = Tmp1.as<std::vector<antlrcpp::Any>>().size(),num2;
             
             for(int i = n-2;i >= 0;i--){
@@ -95,23 +118,34 @@ class EvalVisitor: public Python3BaseVisitor {
                    {  
                       if(!tmp2.is<std::string>() || tmp2.as<std::string>()[0] == '"') std::cerr<<"Gramer error"<<std::endl;//不能把一个变量赋给一个常量
                       else {
-                          /*if(!flag) {
-                              tmp2 = "8" + tmp2.as<std::string>();
-                              if(){
-
-                              }
+                          /*if(f) {//不在函数内
+                              tmp2 = "8" + tmp2.as<std::string>();//做出全局变量的标记，由于变量不能以数字开头，因此这里的变量独一无二
+                              tmp1 = "8" + tmp1.as<std::string>();
+                              globa_quality[tmp2.as<std::string>()] = globa_quality[tmp1.as<std::string>()];
+                          }else{
+                              if(quality.find(tmp1.as<std::string>()) == quality.end()){
+                                  T1 = "8" + tmp1.as<std::string>();
+                                  if(quality.find(T1.as<std::string>()) == quality.end()){
+                                      std::cerr<<"Grammer error";
+                                  }else{//是一个全局变量！
+                                      quality[tmp2.as<std::string>()] = quality[T1.as<std::string>()];
+                                  }
+                              }else{*/
+                                  quality[tmp2.as<std::string>()] = quality[tmp1.as<std::string>()];
+                             /* }
                           }*/
-                          quality[tmp2.as<std::string>()] = quality[tmp1.as<std::string>()];
-                          //std::cout<<quality[tmp2.as<std::string>()].as<bigInteger>();
                       }
                    }
-                   else
+                   else//tmp1是常量
                    {
                       if(!tmp2.is<std::string>() || tmp2.as<std::string>()[0] == '"') std::cerr<<"Gramer error"<<std::endl;//不能把一个常量赋给一个常量
                       else {
-                          //if(!flag) tmp2 = "8" + tmp2.as<std::string>();
-                          quality[tmp2.as<std::string>()] = tmp1;
-                          //std::cout<<quality[tmp2.as<std::string>()].as<bigInteger>();
+                          /*if(!f){//不在函数内
+                              tmp2 = "8" + tmp2.as<std::string>();
+                              globa_quality[tmp2.as<std::string>()] = tmp1;
+                          }else{*/
+                              quality[tmp2.as<std::string>()] = tmp1;
+                          //}
                       }
                    }
                }
@@ -133,6 +167,12 @@ class EvalVisitor: public Python3BaseVisitor {
             if(!Tmp.is<std::string>() || Tmp.as<std::string>()[0] == '"'){
                 std::cerr<<"Grammer error";
             }
+            /*if(lev != 0){
+                if(quality.empty())
+                {quality = globa_quality;}//如果尚无变量，取全部全局变量
+                f = true;//说明这是函数内部
+            }else f = false;*/
+
             if(tmp2.is<std::string>() && tmp2.as<std::string>()[0] != '"'){
                 tmp2 = quality[tmp2.as<std::string>()];
             }
@@ -498,6 +538,7 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitFlow_stmt(Python3Parser::Flow_stmtContext *ctx) override {
+        //std::cout<<"hit flow stmt"<<std::endl;
         return visitChildren(ctx);
     }
 
@@ -516,15 +557,20 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitReturn_stmt(Python3Parser::Return_stmtContext *ctx) override {
-        std::vector <antlrcpp::Any> ans;
-        std::string s = "return";
-        ans.push_back(s);
-        ans.push_back(visit(ctx -> testlist()));
-        return ans;
-        //return visitChildren(ctx);
+        if(ctx -> testlist()){
+            std::vector <antlrcpp::Any> ans;
+            std::string s = "return";
+            ans.push_back(s);
+            ans.push_back(visit(ctx -> testlist()));
+            return ans;
+        }else{
+            std::string s = "return";
+            return s;
+        }
     }
 
     antlrcpp::Any visitCompound_stmt(Python3Parser::Compound_stmtContext *ctx) override {
+        //std::cout<<"hit Compound stmt"<<std::endl;
         return visitChildren(ctx);
     }
 
@@ -604,6 +650,7 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitSuite(Python3Parser::SuiteContext *ctx) override {
+        //std::cout<<"ss"<<std::endl;
         if(ctx -> stmt(0) != nullptr){
             antlrcpp::Any tmp;
             //std::cout<<"Suite"<<std::endl;
@@ -612,19 +659,23 @@ class EvalVisitor: public Python3BaseVisitor {
                 tmp = visit(ctx -> stmt(i));
                 //std::cout<<"stmt"<<std::endl;
                 if(tmp.is<std::string>()){
-                   // std::cout<<"string"<<std::endl;
+                    //std::cout<<"string"<<std::endl;
                     if(tmp.as<std::string>() == "continue"){
                        std::string ans = "continue";
                        return ans;
                     }else if(tmp.as<std::string>() == "break"){
                        std::string ans = "break";
                        return ans;
+                    }else if(tmp.as<std::string>() == "return"){
+                        //std::cout<<"R"<<std::endl;
+                        std::string ans = "return";
+                        return ans;
                     }
                 }else if(tmp.is<std::vector<antlrcpp::Any>>()){
                     //std::cout<<"vector"<<std::endl;
                     if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
                         if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
-                           // std::cout<<"Return"<<std::endl;
+                            std::cout<<"Return"<<std::endl;
                             return tmp.as<std::vector<antlrcpp::Any>>()[1];
                         }
                     }
@@ -647,14 +698,15 @@ class EvalVisitor: public Python3BaseVisitor {
                        return ans;
                     }
                 }else if(tmp.is<std::vector<antlrcpp::Any>>()){
+                    //std::cout<<"vector"<<std::endl;
                    if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
                         if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
-                           // std::cout<<"Return"<<std::endl;
+                           //std::cout<<"Return"<<std::endl;
                             return tmp.as<std::vector<antlrcpp::Any>>()[1];
                         }
                     }
                 }    
-            return visit(ctx -> simple_stmt());
+            return 0;
         }
     }
 
@@ -1873,11 +1925,11 @@ class EvalVisitor: public Python3BaseVisitor {
                     return t1;
                 }else if(tmp1.is<std::string>()){
                     int n = tmp1.as<std::string>().size();
-                    char a[n+1];
-                    for(int i = 0;i < n;i++){
-                        a[i] = tmp1.as<std::string>()[i];
+                    char a[n];
+                    for(int i = 1;i < n;i++){
+                        a[i-1] = tmp1.as<std::string>()[i];
                     }
-                    a[n] = '\0';
+                    a[n-1] = '\0';
                     bigInteger t(a);
                     return t;
                 }
@@ -1900,8 +1952,10 @@ class EvalVisitor: public Python3BaseVisitor {
                     }
                     return t1;
                 }else if(tmp1.is<std::string>()){
+                    //std::cout<<"string"<<std::endl;
                     tmp1 = atof(tmp1.as<std::string>().c_str());
                     return tmp1;
+                    //return 0;
                 }
                 else if(tmp1.is<double>())return tmp1;
             }else if(tmp2.as<std::string>() == "str"){
@@ -1960,7 +2014,19 @@ class EvalVisitor: public Python3BaseVisitor {
                     }else b = true;
                     return b;
                 }else if(tmp1.is<bool>())return tmp1;
-            }   
+            }/*else if(functylist.find(tmp2.as<std::string>()) != functylist.end()) 
+            {
+                std::cout<<"func"<<std::endl;
+                lev += 1;
+                level.push(quality);
+                quality.clear();
+                functylist[tmp2.as<std::string>()];
+                //anltrcpp::Any ret = 
+                funcsutie[tmp2.as<std::string>()];
+                lev -=1;
+                //if()
+                return 0;
+            }  */
         }
         return visit(ctx -> atom());
     }
