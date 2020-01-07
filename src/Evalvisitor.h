@@ -35,11 +35,15 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitStmt(Python3Parser::StmtContext *ctx) override {
+        //if(ctx -> simple_stmt())
+        //    return visit(ctx -> simple_stmt());
+        //else 
+        //    return visit(ctx -> compound_stmt());
         return visitChildren(ctx);
     }
 
     antlrcpp::Any visitSimple_stmt(Python3Parser::Simple_stmtContext *ctx) override {
-        return visitChildren(ctx);
+        return visit(ctx -> small_stmt());
     }
 
     antlrcpp::Any visitSmall_stmt(Python3Parser::Small_stmtContext *ctx) override {
@@ -469,14 +473,25 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitBreak_stmt(Python3Parser::Break_stmtContext *ctx) override {
-        return visitChildren(ctx);
+        std::string s;
+        s += "break";
+        return s;
+        //return visitChildren(ctx);
     }
 
     antlrcpp::Any visitContinue_stmt(Python3Parser::Continue_stmtContext *ctx) override {
-        return visitChildren(ctx);
+        std::string s;
+        s += "continue";
+        return s;
+        //return visitChildren(ctx);
     }
 
     antlrcpp::Any visitReturn_stmt(Python3Parser::Return_stmtContext *ctx) override {
+        /*std::vector <antlrcpp::Any> ans;
+        std::string s = "return";
+        ans.push_back(s);
+        ans.push_back(visit(ctx -> testlist()));
+        return ans;*/
         return visitChildren(ctx);
     }
 
@@ -485,15 +500,133 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitIf_stmt(Python3Parser::If_stmtContext *ctx) override {
-        return visitChildren(ctx);
+        
+        int n = ctx -> test().size();
+        for(int i = 0;i < n;i++){
+            antlrcpp::Any con = visit(ctx -> test(i));
+            if(con.as<bool>()){
+                return visit(ctx -> suite(i));
+            }
+        }
+        if(ctx -> ELSE()){
+            return visit(ctx -> suite(n));
+        }else{
+            return 0;
+        }
+        //return visitChildren(ctx);//
     }
 
     antlrcpp::Any visitWhile_stmt(Python3Parser::While_stmtContext *ctx) override {
-        return visitChildren(ctx);
+        antlrcpp::Any con = visit(ctx -> test()),tmp;
+        if(con.is<std::vector<antlrcpp::Any>>()){
+            con = con.as<std::vector<antlrcpp::Any>>()[0];
+        }
+        if(con.is<std::string>() && con.as<std::string>()[0] != '"'){
+                con = quality[con.as<std::string>()];
+        }
+        if(con.is<bigInteger>()){
+            bigInteger t0("0");
+            if(con.as<bigInteger>() == t0){
+                con = false;
+            }else con = true;
+        }else if(con.is<double>()){
+            con = (bool)con.as<double>();
+        }else if(con.is<std::string>()){
+            std::string s;
+            s += '"';
+            if(con.as<std::string>() == s){
+                con = false;
+            }else con = true;
+        }
+        //std::cout<<con.as<bool>()<<std::endl;
+        //int j=0;
+        while(con.as<bool>()){
+            tmp = visit(ctx -> suite());
+            if(tmp.is<std::string>()){
+                if(tmp.as<std::string>() == "break") break;
+            }
+            //std::cout<<"  H   "<<std::endl;
+            con = visit(ctx -> test());
+            if(con.is<std::vector<antlrcpp::Any>>()){
+               con = con.as<std::vector<antlrcpp::Any>>()[0];
+            }
+            if(con.is<std::string>() && con.as<std::string>()[0] != '"'){
+                con = quality[con.as<std::string>()];
+            }
+            if(con.is<bigInteger>()){
+               bigInteger t0("0");
+               if(con.as<bigInteger>() == t0){
+                   con = false;
+                }else con = true;
+            }else if(con.is<double>()){
+               con = (bool)con.as<double>();
+            }else if(con.is<std::string>()){
+               std::string s;
+               s += '"';
+               if(con.as<std::string>() == s){
+                   con = false;
+                }else con = true;
+            }
+            //j ++;
+            //std::cout<<"["<<j<<"]";
+        }
+        return 0;
+        //return visitChildren(ctx);//
     }
 
     antlrcpp::Any visitSuite(Python3Parser::SuiteContext *ctx) override {
-        return visitChildren(ctx);
+        if(ctx -> stmt(0) != nullptr){
+            antlrcpp::Any tmp;
+            //std::cout<<"Suite"<<std::endl;
+            int n = ctx -> stmt().size();
+            for(int i = 0;i < n;i++){
+                tmp = visit(ctx -> stmt(i));
+                //std::cout<<"stmt"<<std::endl;
+                if(tmp.is<std::string>()){
+                   // std::cout<<"string"<<std::endl;
+                    if(tmp.as<std::string>() == "continue"){
+                       std::string ans = "continue";
+                       return ans;
+                    }else if(tmp.as<std::string>() == "break"){
+                       std::string ans = "break";
+                       return ans;
+                    }
+                }else if(tmp.is<std::vector<antlrcpp::Any>>()){
+                    //std::cout<<"vector"<<std::endl;
+                    if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
+                        if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
+                           // std::cout<<"Return"<<std::endl;
+                            return tmp.as<std::vector<antlrcpp::Any>>()[1];
+                        }
+                    }
+                    
+                } 
+                //std::cout<<"for"<<std::endl;   
+            }
+            //std::cout<<"return0"<<std::endl;
+            return 0;
+        }else if(ctx -> simple_stmt()){
+            //std::cout<<"simple stmt";
+            antlrcpp::Any tmp;
+            tmp = visit(ctx -> simple_stmt());
+                if(tmp.is<std::string>()){
+                    if(tmp.as<std::string>() == "continue"){
+                       std::string ans = "continue";
+                       return ans;
+                    }else if(tmp.as<std::string>() == "break"){
+                       std::string ans = "break";
+                       return ans;
+                    }
+                }else if(tmp.is<std::vector<antlrcpp::Any>>()){
+                   if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
+                        if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
+                           // std::cout<<"Return"<<std::endl;
+                            return tmp.as<std::vector<antlrcpp::Any>>()[1];
+                        }
+                    }
+                }    
+            return visit(ctx -> simple_stmt());
+        }
     }
 
     antlrcpp::Any visitTest(Python3Parser::TestContext *ctx) override {
@@ -523,7 +656,7 @@ class EvalVisitor: public Python3BaseVisitor {
                 return false; 
             }
         }else{
-            return visitChildren(ctx);
+            return visit(ctx -> and_test(0));
         }
     }
 
@@ -549,7 +682,7 @@ class EvalVisitor: public Python3BaseVisitor {
                 return true;
             }
         }else{
-            return visitChildren(ctx);
+            return visit(ctx -> not_test(0));
         }
     }
 
@@ -565,7 +698,7 @@ class EvalVisitor: public Python3BaseVisitor {
                 return true;
             }
         }else{
-            return visitChildren(ctx);
+            return visit(ctx -> comparison());
         }
     }
 
@@ -1074,7 +1207,7 @@ class EvalVisitor: public Python3BaseVisitor {
             return Ans;
         }
         else {
-            return visitChildren(ctx);
+            return visit(ctx -> arith_expr(0));
         }
         
     }
@@ -1103,9 +1236,8 @@ class EvalVisitor: public Python3BaseVisitor {
 
     antlrcpp::Any visitArith_expr(Python3Parser::Arith_exprContext *ctx) override {
         int n = ctx -> term().size();
-        
         if(n == 1)
-        return visitChildren(ctx);
+        return visit(ctx -> term(0));
         else{
             bool flag;//true 为加法，false 为减法；
             antlrcpp::Any tmp1 = visit(ctx -> term(0));
@@ -1265,7 +1397,7 @@ class EvalVisitor: public Python3BaseVisitor {
     antlrcpp::Any visitTerm(Python3Parser::TermContext *ctx) override {
         int n = ctx -> factor().size();
 
-        if(n == 1) return visitChildren(ctx);
+        if(n == 1) return visit(ctx -> factor(0));
         else{
             antlrcpp::Any tmp1 = visit(ctx -> factor(0));
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
@@ -1604,7 +1736,7 @@ class EvalVisitor: public Python3BaseVisitor {
             return tmp;
         }
         else{
-            return visitChildren(ctx);
+            return visit(ctx -> atom_expr());
         }
         
     }
@@ -1667,7 +1799,8 @@ class EvalVisitor: public Python3BaseVisitor {
 
                 std::cout<<" ";
               }  //
-              std::cout<<std::endl; 
+              std::cout<<std::endl;
+              return visit(ctx -> atom()); 
             } else if(tmp2.as<std::string>() == "int"){
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
@@ -1790,8 +1923,10 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitTrailer(Python3Parser::TrailerContext *ctx) override {
-        // std::cout<<"    visit trailer    ";
+        if(ctx -> arglist())
         return visit(ctx -> arglist());
+        else
+        return 0;
     }
 
     antlrcpp::Any visitAtom(Python3Parser::AtomContext *ctx) override {
