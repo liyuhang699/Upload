@@ -30,7 +30,9 @@ class EvalVisitor: public Python3BaseVisitor {
         //Python3Parser::ParametersContext *tylist = ctx -> parameters();
         //Python3Parser::SuiteContext *todo = ctx -> suite();
         std::string funcname = ctx -> NAME() -> toString();
+        //std::cout<<"tostring"<<std::endl;
         functylist[funcname] = ctx -> parameters();
+        //std::cout<<"funlist"<<std::endl;
         funcsutie[funcname] = ctx -> suite();
         //std::cout<<"complete"<<std::endl;
         return 0;
@@ -1830,6 +1832,7 @@ class EvalVisitor: public Python3BaseVisitor {
             antlrcpp::Any tmp0,tmp1,tmp2;
             
             tmp0 = visit(ctx -> trailer());
+            //if(tmp0.is<std::vector<antlrcpp::Any>>())
             int num = tmp0.as<std::vector<antlrcpp::Any>>().size();
             //std::cout<<"{"<<num<<"}";
             tmp2 = visit(ctx -> atom()); 
@@ -1877,9 +1880,12 @@ class EvalVisitor: public Python3BaseVisitor {
                 }
                 else if(tmp1.is<int>())//为none
                 std::cout<<"None";
+                else if(tmp1.is<short>()){
+                    //do nothing
+                }
 
                 std::cout<<" ";
-              }  //
+              }
               std::cout<<std::endl;
               return visit(ctx -> atom()); 
             } else if(tmp2.as<std::string>() == "int"){
@@ -2014,19 +2020,25 @@ class EvalVisitor: public Python3BaseVisitor {
                     }else b = true;
                     return b;
                 }else if(tmp1.is<bool>())return tmp1;
-            }/*else if(functylist.find(tmp2.as<std::string>()) != functylist.end()) 
+            }else if(functylist.find(tmp2.as<std::string>()) != functylist.end()) 
             {
-                std::cout<<"func"<<std::endl;
+                //std::cout<<"func"<<std::endl;
                 lev += 1;
                 level.push(quality);
                 quality.clear();
-                functylist[tmp2.as<std::string>()];
-                //anltrcpp::Any ret = 
-                funcsutie[tmp2.as<std::string>()];
+                Python3Parser::ParametersContext* list = functylist[tmp2.as<std::string>()];
+                //anltrcpp::Any ret = visit(
+                    //std::cout<<"list"<<std::endl;
+                Python3Parser::SuiteContext* todo = funcsutie[tmp2.as<std::string>()];
+                //std::cout<<"sut"<<std::endl;
+                if(list -> typedargslist()){
+                    visit(list -> typedargslist());
+                }
+                antlrcpp::Any value = visit(todo);
                 lev -=1;
                 //if()
                 return 0;
-            }  */
+            }  
         }
         return visit(ctx -> atom());
     }
@@ -2034,8 +2046,12 @@ class EvalVisitor: public Python3BaseVisitor {
     antlrcpp::Any visitTrailer(Python3Parser::TrailerContext *ctx) override {
         if(ctx -> arglist())
         return visit(ctx -> arglist());
-        else
-        return 0;
+        else{
+            std::vector <antlrcpp::Any> fina;
+            short a = 0;
+            fina.push_back(a);
+            return fina;
+        } 
     }
 
     antlrcpp::Any visitAtom(Python3Parser::AtomContext *ctx) override {
