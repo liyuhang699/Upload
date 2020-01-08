@@ -2026,8 +2026,8 @@ class EvalVisitor: public Python3BaseVisitor {
             {
                 //std::cout<<"func"<<std::endl;
                 lev += 1;
-                level.push(quality);
-                quality.clear();
+                //level.push(quality);
+                //quality.clear();
                 Python3Parser::ParametersContext* list = functylist[tmp2.as<std::string>()];
                 //anltrcpp::Any ret = visit(
                     //std::cout<<"list"<<std::endl;
