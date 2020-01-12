@@ -12,6 +12,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <stack>
+#include <stdlib.h>
 
 class EvalVisitor: public Python3BaseVisitor {
     std::map<std::string,antlrcpp::Any> globa_quality; 
@@ -652,16 +653,16 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitSuite(Python3Parser::SuiteContext *ctx) override {
-        //std::cout<<"ss"<<std::endl;
+        std::cout<<"ss"<<std::endl;
         if(ctx -> stmt(0) != nullptr){
             antlrcpp::Any tmp;
-            //std::cout<<"Suite"<<std::endl;
+            std::cout<<"Suite"<<std::endl;
             int n = ctx -> stmt().size();
             for(int i = 0;i < n;i++){
                 tmp = visit(ctx -> stmt(i));
-                //std::cout<<"stmt"<<std::endl;
+                std::cout<<"stmt"<<std::endl;
                 if(tmp.is<std::string>()){
-                    //std::cout<<"string"<<std::endl;
+                    std::cout<<"string"<<std::endl;
                     if(tmp.as<std::string>() == "continue"){
                        std::string ans = "continue";
                        return ans;
@@ -669,12 +670,12 @@ class EvalVisitor: public Python3BaseVisitor {
                        std::string ans = "break";
                        return ans;
                     }else if(tmp.as<std::string>() == "return"){
-                        //std::cout<<"R"<<std::endl;
+                        std::cout<<"R"<<std::endl;
                         std::string ans = "return";
                         return ans;
                     }
                 }else if(tmp.is<std::vector<antlrcpp::Any>>()){
-                    //std::cout<<"vector"<<std::endl;
+                    std::cout<<"vector"<<std::endl;
                     if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
                         if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
                             std::cout<<"Return"<<std::endl;
@@ -683,9 +684,9 @@ class EvalVisitor: public Python3BaseVisitor {
                     }
                     
                 } 
-                //std::cout<<"for"<<std::endl;   
+                std::cout<<"for"<<std::endl;   
             }
-            //std::cout<<"return0"<<std::endl;
+            std::cout<<"return0"<<std::endl;
             return 0;
         }else if(ctx -> simple_stmt()){
             //std::cout<<"simple stmt";
@@ -1958,9 +1959,10 @@ class EvalVisitor: public Python3BaseVisitor {
                     }
                     return t1;
                 }else if(tmp1.is<std::string>()){
-                    //std::cout<<"string"<<std::endl;
-                    tmp1 = atof(tmp1.as<std::string>().c_str());
-                    return tmp1;
+                    //std::cout<<"string"<<std::endl;stdlib.h
+                    tmp1.as<std::string>().erase(0,1);//tmp.erase(len-1,1);
+                    double t = atof(tmp1.as<std::string>().c_str());
+                    return t;
                     //return 0;
                 }
                 else if(tmp1.is<double>())return tmp1;
@@ -2024,8 +2026,8 @@ class EvalVisitor: public Python3BaseVisitor {
             {
                 //std::cout<<"func"<<std::endl;
                 lev += 1;
-                level.push(quality);
-                quality.clear();
+                //level.push(quality);
+                //quality.clear();
                 Python3Parser::ParametersContext* list = functylist[tmp2.as<std::string>()];
                 //anltrcpp::Any ret = visit(
                     //std::cout<<"list"<<std::endl;
