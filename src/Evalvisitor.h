@@ -65,11 +65,33 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitTypedargslist(Python3Parser::TypedargslistContext *ctx) override {
-        return visitChildren(ctx);
+        //std::cout<<"hit Typedargslist"<<std::endl;
+        int Nna = 1,Nte = 0;
+        if(ctx -> tfpdef(0)) Nna = ctx -> tfpdef().size();
+        if(ctx -> test(0)) Nte = ctx -> test().size();
+        //std::cout<<"hh"<<std::endl;
+        antlrcpp::Any na,va;
+        std::string Na;
+        std::vector<std::string> Name;
+        for(int i = 0;i < Nna;i++){
+            //std::cout<<"h0"<<std::endl;
+            na = visit(ctx -> tfpdef(i));
+            //std::cout<<"h1"<<std::endl;
+            //if(na.is<std::string>()) std::cout<<"["<<na.as<std::string>()<<std::endl;
+            Na = '8' + na.as<std::string>();
+            //std::cout<<"h2"<<std::endl;
+            Name.push_back(Na);
+            if(i >= Nna - Nte){
+                quality[Name[i]] = visit(ctx -> test(i - Nna + Nte));
+                //std::cout<<"morenzhi"<<std::endl;
+            }
+            //std::cout<<"canshu"<<std::endl;
+        }    
+        return Name;
     }
 
     antlrcpp::Any visitTfpdef(Python3Parser::TfpdefContext *ctx) override {
-        return visitChildren(ctx);
+        return ctx -> NAME() -> toString();
     }
 
     antlrcpp::Any visitStmt(Python3Parser::StmtContext *ctx) override {
@@ -101,18 +123,30 @@ class EvalVisitor: public Python3BaseVisitor {
                 {quality = globa_quality;}//如果尚无变量，取全部全局变量
                 f = true;//说明这是函数内部
             }else f = false;
-
+            //std::cout<<"("<<f<<")"<<std::endl;
             int n = ctx ->testlist().size();
             //std::cout<<"["<<n<<"]";
-            antlrcpp::Any Tmp1 = visit(ctx -> testlist(n-1)),tmp1,tmp2,T1;
+            antlrcpp::Any Tmp1 = visit(ctx -> testlist(n-1)),tmp1,tmp2,T1,tmp1in;
             int num1 = Tmp1.as<std::vector<antlrcpp::Any>>().size(),num2;
             antlrcpp::Any T[num1];
            for(int j = 0;j < num1;j ++){
                 tmp1 = Tmp1.as<std::vector<antlrcpp::Any>>()[j];
-                if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"')
-                    T[j] = quality[tmp1.as<std::string>()];
-                 else T[j] = tmp1;
+                if(!f){//在函数外部
+                    if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"')
+                        T[j] = globa_quality[tmp1.as<std::string>()];
+                    else T[j] = tmp1;
+                }else{//在函数内部
+                    if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
+                        //std::cout<<"hanshuneibu"<<std::endl;
+                        tmp1in = '8' + tmp1.as<std::string>();//函数内部的储存
+                        if(quality.find(tmp1in.as<std::string>()) != quality.end()){
+                            tmp1 = tmp1in;//如果函数内部有，取函数内部的变量名
+                        }
+                        T[j] = quality[tmp1.as<std::string>()];
+                    } else T[j] = tmp1;  
+                }   
             }
+            //此时T中存的是值
 
             for(int i = n-2;i >= 0;i--){
                 
@@ -122,8 +156,14 @@ class EvalVisitor: public Python3BaseVisitor {
                
                for(int j=0;j < num1;j++){ 
                    tmp2 = Tmp2.as<std::vector<antlrcpp::Any>>()[j];
-                   if(tmp2.is<std::string>() || tmp2.as<std::string>()[0] != '"'){
-                       quality[tmp2.as<std::string>()] = T[j];
+                   
+                   if(tmp2.is<std::string>() || tmp2.as<std::string>()[0] != '"'){ 
+                       if(f){
+                           tmp2 = '8' + tmp2.as<std::string>();//如果在函数内部，但是又不能修改全局变量，此处只能是函数内变量，加上标记
+                           quality[tmp2.as<std::string>()] = T[j];
+                       }else{//处于全局，直接建在全局
+                           globa_quality[tmp2.as<std::string>()] = T[j];
+                       }
                    }else std::cerr <<"Grammer error";
                    //std::cout<<"["<<num1<<","<<num2<<"]";
                    //std::cout<<tmp1.as<std::string>();
@@ -182,6 +222,8 @@ class EvalVisitor: public Python3BaseVisitor {
             tmp2 = tmp2.as<std::vector<antlrcpp::Any>>()[0];
             if(!Tmp.is<std::string>() || Tmp.as<std::string>()[0] == '"'){
                 std::cerr<<"Grammer error";
+            }else{
+                if(lev != 0) Tmp = '8' + Tmp.as<std::string>();
             }
             /*if(lev != 0){
                 if(quality.empty())
@@ -190,9 +232,18 @@ class EvalVisitor: public Python3BaseVisitor {
             }else f = false;*/
 
             if(tmp2.is<std::string>() && tmp2.as<std::string>()[0] != '"'){
-                tmp2 = quality[tmp2.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp2.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp2 = t2;
+                    }
+                    tmp2 = quality[tmp2.as<std::string>()];
+                }else{//在全局
+                    tmp2 = globa_quality[tmp2.as<std::string>()];
+                }
             }
-            tmp1 = quality[Tmp.as<std::string>()];
+            if(lev == 0)  tmp1 = globa_quality[Tmp.as<std::string>()];
+            else tmp1 = quality[Tmp.as<std::string>()];
             if(op.as<int>() == 1 || op.as<int>() == 2){
                 bool flag;
                 if(op.as<int>() == 1) flag = true;
@@ -530,7 +581,8 @@ class EvalVisitor: public Python3BaseVisitor {
                         std::cerr<<"Grammer error";
                     }
             }
-            quality[Tmp.as<std::string>()] = tmp1;
+            if(lev == 0 ) globa_quality[Tmp.as<std::string>()] = tmp1;
+            else  quality[Tmp.as<std::string>()] = tmp1;
         }
         return visitChildren(ctx);
     }
@@ -577,7 +629,10 @@ class EvalVisitor: public Python3BaseVisitor {
             std::vector <antlrcpp::Any> ans;
             std::string s = "return";
             ans.push_back(s);
-            ans.push_back(visit(ctx -> testlist()));
+            antlrcpp::Any A = visit(ctx -> testlist());
+            A = A.as<std::vector<antlrcpp::Any>>()[0];
+            //std::cout<<A.as<std::string>()<<"]"<<std::endl;
+            ans.push_back(A);
             return ans;
         }else{
             std::string s = "return";
@@ -599,7 +654,15 @@ class EvalVisitor: public Python3BaseVisitor {
                con = con.as<std::vector<antlrcpp::Any>>()[0];
             }
             if(con.is<std::string>() && con.as<std::string>()[0] != '"'){
-                con = quality[con.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + con.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        con = t2;
+                    }
+                    con = quality[con.as<std::string>()];
+                }else{//在全局
+                    con = globa_quality[con.as<std::string>()];
+                }
             }
             if(con.is<bigInteger>()){
                 bigInteger t0("0");
@@ -634,7 +697,15 @@ class EvalVisitor: public Python3BaseVisitor {
             con = con.as<std::vector<antlrcpp::Any>>()[0];
         }
         if(con.is<std::string>() && con.as<std::string>()[0] != '"'){
+            if(lev != 0){
+                std::string t2 = '8' + con.as<std::string>();
+                if(quality.find(t2) != quality.end()){//如果内部有
+                    con = t2;
+                }
                 con = quality[con.as<std::string>()];
+            }else{//在全局
+                con = globa_quality[con.as<std::string>()];
+            }
         }
         if(con.is<bigInteger>()){
             bigInteger t0("0");
@@ -663,7 +734,15 @@ class EvalVisitor: public Python3BaseVisitor {
                con = con.as<std::vector<antlrcpp::Any>>()[0];
             }
             if(con.is<std::string>() && con.as<std::string>()[0] != '"'){
-                con = quality[con.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + con.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        con = t2;
+                    }
+                    con = quality[con.as<std::string>()];
+                }else{//在全局
+                    con = globa_quality[con.as<std::string>()];
+                }
             }
             if(con.is<bigInteger>()){
                bigInteger t0("0");
@@ -688,6 +767,7 @@ class EvalVisitor: public Python3BaseVisitor {
 
     antlrcpp::Any visitSuite(Python3Parser::SuiteContext *ctx) override {
         //std::cout<<"in suite"<<std::endl;
+        //std::cout<<"["<<lev<<"]"<<std::endl;
         if(ctx -> stmt(0) != nullptr){
             antlrcpp::Any tmp;
             //std::cout<<"stmt1"<<std::endl;
@@ -712,8 +792,8 @@ class EvalVisitor: public Python3BaseVisitor {
                     //std::cout<<"vector"<<std::endl;
                     if(tmp.as<std::vector<antlrcpp::Any>>()[0].is<std::string>()){
                         if(tmp.as<std::vector<antlrcpp::Any>>()[0].as<std::string>() == "return"){
-                            //std::cout<<"Return"<<std::endl;
-                            return tmp.as<std::vector<antlrcpp::Any>>()[1];
+                            //std::cout<<tmp.as<std::vector<antlrcpp::Any>>()[1].as<std::string>()<<std::endl;
+                            return tmp;
                         }
                     }
                     
@@ -756,7 +836,16 @@ class EvalVisitor: public Python3BaseVisitor {
             int n = ctx -> and_test().size();
             antlrcpp::Any tmp1 = visit(ctx -> and_test(0)),tmp2;
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
+                //tmp1 = quality[tmp1.as<std::string>()];
             }
             if(tmp1.as<bool>()) return true;
             else {
@@ -764,7 +853,15 @@ class EvalVisitor: public Python3BaseVisitor {
                 for(int i = 1;i < n;i++){
                     tmp2 = visit(ctx -> and_test(i));
                     if(tmp2.is<std::string>() && tmp2.as<std::string>()[0] != '"'){
+                        if(lev != 0){
+                            std::string t2 = '8' + tmp2.as<std::string>();
+                            if(quality.find(t2) != quality.end()){//如果内部有
+                                tmp2 = t2;
+                            }
                         tmp2 = quality[tmp2.as<std::string>()];
+                        }else{//在全局
+                            tmp2 = globa_quality[tmp2.as<std::string>()];
+                        }
                     }
                     //std::cout<<"[or]";
                     if(tmp2.as<bool>())
@@ -783,14 +880,30 @@ class EvalVisitor: public Python3BaseVisitor {
             int n = ctx -> not_test().size();
             antlrcpp::Any tmp1 = visit(ctx -> not_test(0)),tmp2;
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
             }
             if(!tmp1.as<bool>()) return false;
             else {
                 for(int i = 1;i < n;i++){
                     tmp2 = visit(ctx -> not_test(i));
                     if(tmp2.is<std::string>() && tmp2.as<std::string>()[0] != '"'){
-                        tmp2 = quality[tmp2.as<std::string>()];
+                        if(lev != 0){
+                            std::string t2 = '8' + tmp2.as<std::string>();
+                            if(quality.find(t2) != quality.end()){//如果内部有
+                                tmp2 = t2;
+                            }
+                             tmp2 = quality[tmp2.as<std::string>()];
+                        }else{//在全局
+                             tmp2 = globa_quality[tmp2.as<std::string>()];
+                        }
                     }
                     //std::cout<<"[and]";
                     if(!tmp2.as<bool>())
@@ -808,7 +921,15 @@ class EvalVisitor: public Python3BaseVisitor {
         if(ctx -> NOT()){
             antlrcpp::Any tmp1 = visit(ctx -> not_test());
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
             }
             if(tmp1.as<bool>()){
                 return false;
@@ -827,12 +948,28 @@ class EvalVisitor: public Python3BaseVisitor {
             int n = ctx -> arith_expr().size();
             antlrcpp::Any tmp1 = visit(ctx -> arith_expr(0)),tmp2,op;
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
             }
             for(int i = 1;i < n;i++){
                 tmp2 = visit(ctx -> arith_expr(i));
                 if(tmp2.is<std::string>() && tmp2.as<std::string>()[0] != '"'){
-                   tmp2 = quality[tmp2.as<std::string>()];
+                    if(lev != 0){
+                        std::string t2 = '8' + tmp2.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            tmp2 = t2;
+                        }
+                        tmp2 = quality[tmp2.as<std::string>()];
+                    }else{//在全局
+                        tmp2 = globa_quality[tmp2.as<std::string>()];
+                    }
                 }
                 //读入tmp2
                 op = visit(ctx -> comp_op(i-1));
@@ -1365,14 +1502,30 @@ class EvalVisitor: public Python3BaseVisitor {
             int addN = ctx -> ADD().size(),minusN = ctx -> MINUS().size();
             //std::cout<<"["<<addN<<","<<minusN<<"]";
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
             }
             //std::cout<<"{"<<n<<"}";
             for(int i = 1;i<n;i++){
                 //获取tmp2
                 Tmp2 = visit(ctx -> term(i));
                 if(Tmp2.is<std::string>() && Tmp2.as<std::string>()[0] != '"'){
-                   tmp2 = quality[Tmp2.as<std::string>()];
+                   if(lev != 0){
+                        std::string t2 = '8' + Tmp2.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            Tmp2 = t2;
+                        }
+                        tmp2 = quality[Tmp2.as<std::string>()];
+                    }else{//在全局
+                        tmp2 = globa_quality[Tmp2.as<std::string>()];
+                    }
                 }
                 else tmp2 = Tmp2;
                 //if(tmp2.is<bigInteger>())std::cout<<"["<<tmp2.as<bigInteger>()<<"]";
@@ -1519,7 +1672,15 @@ class EvalVisitor: public Python3BaseVisitor {
         else{
             antlrcpp::Any tmp1 = visit(ctx -> factor(0));
             if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                tmp1 = quality[tmp1.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp1.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp1 = t2;
+                    }
+                    tmp1 = quality[tmp1.as<std::string>()];
+                }else{//在全局
+                    tmp1 = globa_quality[tmp1.as<std::string>()];
+                }
             }
 
             antlrcpp::Any tmp2,Tmp2;
@@ -1536,7 +1697,15 @@ class EvalVisitor: public Python3BaseVisitor {
             for(int i=1;i < n;i++){
                 Tmp2 = visit(ctx -> factor(i));
                 if(Tmp2.is<std::string>() && Tmp2.as<std::string>()[0] != '"'){
-                   tmp2 = quality[Tmp2.as<std::string>()];
+                   if(lev != 0){
+                        std::string t2 = '8' + Tmp2.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            Tmp2 = t2;
+                        }
+                        tmp2 = quality[Tmp2.as<std::string>()];
+                    }else{//在全局
+                        tmp2 = globa_quality[Tmp2.as<std::string>()];
+                    }
                 }
                 else tmp2 = Tmp2;
                 
@@ -1814,7 +1983,15 @@ class EvalVisitor: public Python3BaseVisitor {
             //std::cout<<"h";
             antlrcpp::Any tmp = visit(ctx -> factor());
             if(tmp.is<std::string>() && tmp.as<std::string>()[0] != '"'){
-                tmp = quality[tmp.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp = t2;
+                    }
+                    tmp = quality[tmp.as<std::string>()];
+                }else{//在全局
+                    tmp = globa_quality[tmp.as<std::string>()];
+                }
             }
             if(tmp.is<bigInteger>()){
                 bigInteger t("0");
@@ -1837,7 +2014,15 @@ class EvalVisitor: public Python3BaseVisitor {
         else if(ctx -> ADD()){
             antlrcpp::Any tmp = visit(ctx -> factor());
             if(tmp.is<std::string>() && tmp.as<std::string>()[0] != '"'){
-                tmp = quality[tmp.as<std::string>()];
+                if(lev != 0){
+                    std::string t2 = '8' + tmp.as<std::string>();
+                    if(quality.find(t2) != quality.end()){//如果内部有
+                        tmp = t2;
+                    }
+                    tmp = quality[tmp.as<std::string>()];
+                }else{//在全局
+                    tmp = globa_quality[tmp.as<std::string>()];
+                }
             }
             if(tmp.is<bool>()){
                 if(tmp.as<bool>()){
@@ -1880,24 +2065,33 @@ class EvalVisitor: public Python3BaseVisitor {
                         std::cout<<tmp1.as<std::string>();
                     }
                     else{//为一个变量
-                        if(quality.at(tmp1.as<std::string>()).is<std::string>()){
-                            std::string out = quality.at(tmp1.as<std::string>()).as<std::string>();
+                        if(lev != 0){//在函数内部
+                            std::string t2 = '8' + tmp1.as<std::string>();
+                            if(quality.find(t2) != quality.end()){//如果内部有
+                                tmp1 = t2;
+                            }
+                            tmp1 = quality[tmp1.as<std::string>()];
+                        }else{//在全局
+                            tmp1 = globa_quality[tmp1.as<std::string>()];
+                        }
+                        if(tmp1.is<std::string>()){
+                            std::string out = tmp1.as<std::string>();
                             out.erase(0,1);
                             std::cout<<out;
                         }
-                        else if(quality.at(tmp1.as<std::string>()).is<bigInteger>()){
-                            std::cout<<quality.at(tmp1.as<std::string>()).as<bigInteger>();
+                        else if(tmp1.is<bigInteger>()){
+                            std::cout<<tmp1.as<bigInteger>();
                         }
-                        else if(quality.at(tmp1.as<std::string>()).is<double>()){
+                        else if(tmp1.is<double>()){
                             //printf("%.6lf",quality.at(tmp1.as<std::string>()).as<double>());
-                            std::cout<<std::fixed<<std::setprecision(6)<<quality.at(tmp1.as<std::string>()).as<double>();
+                            std::cout<<std::fixed<<std::setprecision(6)<<tmp1.as<double>();
                         } 
-                        else if(quality.at(tmp1.as<std::string>()).is<bool>()){
-                            if(quality.at(tmp1.as<std::string>()).as<bool>())
+                        else if(tmp1.is<bool>()){
+                            if(tmp1.as<bool>())
                             std::cout<<"True";
                             else std::cout<<"False";
                         } 
-                        else if(quality.at(tmp1.as<std::string>()).is<int>()){
+                        else if(tmp1.is<int>()){
                                std::cout<<"None";
                         }
                     }
@@ -1927,7 +2121,15 @@ class EvalVisitor: public Python3BaseVisitor {
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
                 if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                    tmp1 = quality[tmp1.as<std::string>()];
+                    if(lev != 0){
+                        std::string t2 = '8' + tmp1.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            tmp1 = t2;
+                        }
+                        tmp1 = quality[tmp1.as<std::string>()];
+                    }else{//在全局
+                        tmp1 = globa_quality[tmp1.as<std::string>()];
+                    }
                 }
                 if(tmp1.is<double>()){
                     bool flag;
@@ -1979,7 +2181,15 @@ class EvalVisitor: public Python3BaseVisitor {
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
                 if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                    tmp1 = quality[tmp1.as<std::string>()];
+                    if(lev != 0){
+                        std::string t2 = '8' + tmp1.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            tmp1 = t2;
+                        }
+                        tmp1 = quality[tmp1.as<std::string>()];
+                    }else{//在全局
+                        tmp1 = globa_quality[tmp1.as<std::string>()];
+                    }
                 }
                 if(tmp1.is<bigInteger>()){
                     double t = (double)tmp1.as<bigInteger>();
@@ -2004,7 +2214,15 @@ class EvalVisitor: public Python3BaseVisitor {
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
                 if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                    tmp1 = quality[tmp1.as<std::string>()];
+                    if(lev != 0){
+                        std::string t2 = '8' + tmp1.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            tmp1 = t2;
+                        }
+                        tmp1 = quality[tmp1.as<std::string>()];
+                    }else{//在全局
+                        tmp1 = globa_quality[tmp1.as<std::string>()];
+                    }
                 }
                 if(tmp1.is<bigInteger>()){
                     std::string s;
@@ -2032,7 +2250,15 @@ class EvalVisitor: public Python3BaseVisitor {
                 if(num != 1) std::cerr<<"Grammer";
                 tmp1 = tmp0.as<std::vector<antlrcpp::Any>>()[0];
                 if(tmp1.is<std::string>() && tmp1.as<std::string>()[0] != '"'){
-                    tmp1 = quality[tmp1.as<std::string>()];
+                    if(lev != 0){
+                        std::string t2 = '8' + tmp1.as<std::string>();
+                        if(quality.find(t2) != quality.end()){//如果内部有
+                            tmp1 = t2;
+                        }
+                        tmp1 = quality[tmp1.as<std::string>()];
+                    }else{//在全局
+                        tmp1 = globa_quality[tmp1.as<std::string>()];
+                    }
                 }
                 if(tmp1.is<bigInteger>()){
                     bool b;
@@ -2060,20 +2286,72 @@ class EvalVisitor: public Python3BaseVisitor {
             {
                 //std::cout<<"func"<<std::endl;
                 lev += 1;
-                //level.push(quality);
-                //quality.clear();
+                std::map<std::string,antlrcpp::Any> tmpquality;
+                if(lev > 1) {level.push(quality); tmpquality = quality;}
+                else {level.push(globa_quality); tmpquality = globa_quality;}
+                quality.clear();
+                quality = globa_quality;
                 Python3Parser::ParametersContext* list = functylist[tmp2.as<std::string>()];
                 //anltrcpp::Any ret = visit(
                     //std::cout<<"list"<<std::endl;
                 Python3Parser::SuiteContext* todo = funcsutie[tmp2.as<std::string>()];
                 //std::cout<<"sut"<<std::endl;
                 if(list -> typedargslist()){
+                    //std::cout<<"youcanshu"<<std::endl;
                     antlrcpp::Any vlist = visit(list -> typedargslist());
+                    //std::cout<<"wanchengfangwen"<<std::endl;
+                    for(int j = 0;j < num;j++){
+                        antlrcpp::Any va = tmp0.as<std::vector<antlrcpp::Any>>()[j];
+                        //std::cout<<"["<<va.as<std::string>()<<std::endl;
+                        std::string Nam = vlist.as<std::vector<std::string>>()[j];
+                        //std::cout<<"{"<<Nam<<std::endl;
+                        if(va.is<std::string>() && va.as<std::string>()[0] != '"'){
+                            if(lev > 1){//在函数内部
+                                std::string v2 = '8' + va.as<std::string>();
+                                //std::cout<<"("<<v2<<std::endl;
+                                if(tmpquality.find(v2) != tmpquality.end()){//如果内部有
+                                    va = v2;
+                                }
+                                va = tmpquality[va.as<std::string>()];
+                            }else{//在全局
+                                 //std::cout<<"quanju"<<std::endl;
+                                 va = tmpquality[va.as<std::string>()];
+                                 /*if(va.is<bigInteger>()) std::cout<<"1"<<std::endl;
+                                 else if(va.is<int>())std::cout<<"2"<<std::endl;
+                                 else if(va.is<double>())std::cout<<"3"<<std::endl;
+                                 else if(va.is<std::string>())std::cout<<"5"<<std::endl;
+                                 else if(va.is<bool>())std::cout<<"6"<<std::endl;*/
+                            }   
+                        }
+                        quality[Nam] = va;
+                    }
                 }
                 antlrcpp::Any vtodo = visit(todo);
-                lev -=1;
-                //if()
-                return 0;
+                //std::cout<<"hhh"<<std::endl;
+                if(vtodo.is<std::vector<antlrcpp::Any>>()){
+                    vtodo = vtodo.as<std::vector<antlrcpp::Any>>()[1];
+                    if(vtodo.is<std::string>() && vtodo.as<std::string>()[0] != '"'){
+                        if(lev != 0){
+                            //std::cout<<vtodo.as<std::string>()<<std::endl;
+                            std::string t2 = '8' + vtodo.as<std::string>();
+                            if(quality.find(t2) != quality.end()){//如果内部有
+                                vtodo = t2;
+                            }
+                            vtodo = quality[vtodo.as<std::string>()];
+                        }else{//在全局
+                            vtodo = globa_quality[vtodo.as<std::string>()];
+                        }
+                    }
+                    quality = level.top();
+                    level.pop();
+                    lev -=1;
+                    return vtodo;
+                }else{
+                    quality = level.top();
+                    level.pop();
+                    lev -=1;
+                    return 0;
+                }
             }  
         }
         return visit(ctx -> atom());
@@ -2194,13 +2472,20 @@ class EvalVisitor: public Python3BaseVisitor {
         std::vector <antlrcpp::Any> fina;
         for(int i = 0;i < n;i++){
             antlrcpp::Any tmp = visit(ctx -> argument(i));
-            fina.push_back(tmp);
+            if(!tmp.is<int>())  fina.push_back(tmp);
+            else break;    
         } 
         return fina;
     }
 
     antlrcpp::Any visitArgument(Python3Parser::ArgumentContext *ctx) override {
-        return visitChildren(ctx);
+        if(ctx -> ASSIGN()){
+            antlrcpp::Any va = visit(ctx -> test());
+            std::string na = ctx -> NAME() -> toString();
+            na = '8' + na;
+            quality[na] = va;
+            return 0;
+        }else return visitChildren(ctx);
     }
 
 //todo:override all methods of Python3BaseVisitor
